@@ -1,3 +1,3 @@
-# lab-12-inference-smoking
+# Portfolio piece 11 - Lab 12's inference smoking
 
-Materials for lab 12
+Commentary of lab 12
