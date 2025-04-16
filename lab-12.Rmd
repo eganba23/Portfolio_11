@@ -342,4 +342,163 @@ No not actually, but I am thinking that I could somehow create difference scores
 
 I'm thinking that I'll need to use idea one, since I'm not confident idea 2 would give me the best outcomes.
 
-```{r p value for }
+```{r p value for smoking}
+seed
+
+smoking_pvalue_test <- ncbirths_clean %>%
+  group_by(habit) %>%
+  specify(response = weight) %>% 
+  generate(reps = 15000, type = "bootstrap") %>% 
+  calculate(stat = "mean")
+
+view(smoking_pvalue_test)
+
+```
+
+Ok so I fought with chat heavily to figure out how to do it this way via idea 1, and I have zero clue why group_by isn't doing it's job. So now I'll try idea two, but using chat's help
+
+```{r p value for smoking attempt 2}
+# Load necessary libraries
+library(dplyr)
+library(infer)
+
+
+# Split the dataset by habit (smoker vs nonsmoker)
+smoker_data <- ncbirths_clean %>% filter(habit == "smoker")
+nonsmoker_data <- ncbirths_clean %>% filter(habit == "nonsmoker")
+
+# Perform bootstrap for smokers
+smoker_bootstrap <- specify(smoker_data, response = weight) %>%
+  generate(reps = 15000, type = "bootstrap") %>%
+  calculate(stat = "mean")
+
+# Perform bootstrap for non-smokers
+nonsmoker_bootstrap <- specify(nonsmoker_data, response = weight) %>%
+  generate(reps = 15000, type = "bootstrap") %>%
+  calculate(stat = "mean")
+
+# Combine both bootstrap results into one data frame
+white_weight_habit_bootstrap <- bind_rows(
+  smoker_bootstrap %>% mutate(habit = "smoker"),
+  nonsmoker_bootstrap %>% mutate(habit = "nonsmoker")
+)
+
+```
+
+
+I went back and asked it to do it only using the libraries required thus far.
+
+```{r p value for smoking attempt 3}
+
+# Split the dataset by 'habit' (smoker vs nonsmoker)
+smoker_data <- ncbirths_clean %>% filter(habit == "smoker")
+nonsmoker_data <- ncbirths_clean %>% filter(habit == "nonsmoker")
+
+# Define a function to perform bootstrapping
+bootstrap_mean <- function(data, reps = 15000) {
+  # Create bootstrap samples and calculate means
+  replicate(reps, {
+    sample_data <- sample(data$weight, replace = TRUE)
+    mean(sample_data)
+  })
+}
+
+# Perform bootstrap for smokers
+smoker_bootstrap_means <- bootstrap_mean(smoker_data, 15000)
+
+# Perform bootstrap for non-smokers
+nonsmoker_bootstrap_means <- bootstrap_mean(nonsmoker_data, 15000)
+
+# Combine both bootstrap results into one data frame
+white_weight_habit_bootstrap <- tibble(
+  habit = c(rep("smoker", 15000), rep("nonsmoker", 15000)),
+  bootstrap_mean = c(smoker_bootstrap_means, nonsmoker_bootstrap_means)
+)
+
+```
+
+
+Another attempt using ChatGPT. Here is what I plugged into chat
+
+What if i try creating a loop using for or if or while. The loop specifies that I filter for only smoker data, simulate 1500, and apply a categorical variable with the designation "smoker". I then repeat the sequence, except I now filter for only nonsmoker data pply a categorical variable with the designation "nonsmoker" 
+
+It gave me a response I didn't like, and asked "Is it possible to restructure or recreate the code such that we won't have to combine the boostraps and that it will do it all in one go?"
+
+```{r p value for smoking attempt 4}
+
+# Set habit groups and number of reps
+habits <- c("smoker", "nonsmoker")
+n_reps <- 15000
+
+# Initialize an empty tibble to collect all bootstrap results
+white_weight_habit_bootstrap <- tibble()
+
+# Loop through both habit groups and perform bootstrap
+for (h in habits) {
+  
+  # Filter the data for the current group
+  current_data <- ncbirths_clean %>% filter(habit == h)
+  
+  # Perform bootstrap in one go (faster than nested loop)
+  boot_means <- map_dbl(1:n_reps, ~ mean(sample(current_data$weight, replace = TRUE)))
+  
+  # Append results directly to the main tibble
+  white_weight_habit_bootstrap <- bind_rows(
+    white_weight_habit_bootstrap,
+    tibble(habit = h, bootstrap_mean = boot_means)
+  )
+}
+
+# View result
+view(white_weight_habit_bootstrap)
+
+
+```
+
+
+Commentary: To figure out what is happening with group_by, I simulated data with extreme means.
+
+```{r simluate data}
+seed
+
+small <- rnorm(100, mean = 10, sd = 5)
+
+dfsmall <- data.frame(
+    score = small,
+    group = 1
+  )
+
+large <- rnorm(100, mean = 1000, sd = 5)
+
+dflarge <- data.frame(
+    score = large,
+    group = 2
+  )
+
+simulation <- full_join(dfsmall,dflarge)
+
+
+
+simluation_test1 <- simulation %>%
+  group_by(group) %>%
+  specify(response = score) %>% 
+  generate(reps = 15000, type = "bootstrap") %>%
+  calculate(stat = "mean") %>%
+  ungroup()
+
+view(simluation_test)
+
+```
+
+
+Commentary: turns out it just ignores the group_by, as the bootstrapping provides means that encompass the entire data.
+
+
+Ok after talking to 4/16 Mason, we figured out she intended for us to run a t-test.
+
+```{r t test for smoking}
+
+t.test(weight ~ habit, data = ncbirths_clean)
+
+```
+
