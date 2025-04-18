@@ -256,12 +256,11 @@ H1: Mu1 - Mu2 ≠ 0 OR Mu1 ≠ Mu2 (There is a difference between smokers and no
 
 Commentary: I TA for the 312 class and have hypothesis testing essentially tattooed on my frontal lobe.
 
-#### Construct a 95% confidence interval for the difference between the average weights of babies born to smoking and non-smoking mothers.
+#### Run the appropriate hypothesis test, calculate the p-value, and interpret the results in context of the data and the hypothesis test.
 
-*I did them out of order, this is Q10
 
 ```{r CI for smoking}
-view(ncbirths_clean)
+#view(ncbirths_clean)
 
 ci_vals <- ncbirths_clean %>%
   group_by(habit) %>%
@@ -326,7 +325,6 @@ annotate("text",
 
 Based on this graph, it looks like the two distributions heavily overlap, and there appears to be some basic overlap for the CIs.
 
-#### Run the appropriate hypothesis test, calculate the p-value, and interpret the results in context of the data and the hypothesis test.
 
 ##### Commentary 
 I will admit that I was completely lost on how to get the p value. I looked back through the class notes and here is what I came up with:
@@ -351,7 +349,7 @@ smoking_pvalue_test <- ncbirths_clean %>%
   generate(reps = 15000, type = "bootstrap") %>% 
   calculate(stat = "mean")
 
-view(smoking_pvalue_test)
+head(smoking_pvalue_test)
 
 ```
 
@@ -449,8 +447,7 @@ for (h in habits) {
   )
 }
 
-# View result
-view(white_weight_habit_bootstrap)
+# View result ---- view(white_weight_habit_bootstrap)
 
 
 ```
@@ -486,7 +483,7 @@ simluation_test1 <- simulation %>%
   calculate(stat = "mean") %>%
   ungroup()
 
-view(simluation_test)
+
 
 ```
 
@@ -502,3 +499,111 @@ t.test(weight ~ habit, data = ncbirths_clean)
 
 ```
 
+Based on the T-test, we know that mothers who don't smoke have babies with a higher weight (7.144) than mothers who smoke (6.829).
+
+#### Construct a 95% confidence interval for the difference between the average weights of babies born to smoking and non-smoking mothers.
+
+```{r CI for difference between smoking}
+
+mean_smoker_weight <- mean(smoker_data$weight)
+mean_nonsmoker_weight <- mean(nonsmoker_data$weight)
+sd_smoker_weight <- sd(smoker_data$weight)
+sd_nonsmoker_weight <- sd(nonsmoker_data$weight)
+
+mean_diff_smoker_weight <- mean_nonsmoker_weight - mean_smoker_weight
+
+se_smoker_weight <- sqrt(sd_smoker_weight/nrow(smoker_data))+(sd_nonsmoker_weight/nrow(nonsmoker_data))
+
+
+  
+ci_diff <- data.frame(
+    mean_weight = mean_diff_smoker_weight,
+    se = se_smoker_weight,
+    lower = mean_diff_smoker_weight - 1.96 * se_smoker_weight,
+    upper = mean_diff_smoker_weight + 1.96 * se_smoker_weight
+  )
+
+ci_diff
+```
+
+The 95% CI for the mean difference between average weights is (.11 < x > .52).
+
+Commentary: I know to use the SE, but I'm not sure if other people do. Might want to give them the equation as scaffolding?
+
+#### First, a non-inference task: Determine the age cutoff for younger and mature mothers. Use a method of your choice, and explain how your method works.
+
+```{r determine cutoff mature}
+
+test_mature_upper_cutoff <- ncbirths_clean %>%
+  filter(mature == "mature mom")
+
+min(filter_mature$mage)
+
+test_mature_lower_cutoff <- ncbirths_clean %>%
+  filter(mature == "younger mom")
+
+min(filter_mature$mage)
+
+```
+
+I filtered based on mature mom's and saw what the lowest age for mature moms was. I did the same for young moms and looked at the maximum age. Since they're both 35, this will be the cutoff.
+
+#### Conduct a hypothesis test evaluating whether the proportion of low birth weight babies is higher for mature mothers. Use alpha of .05
+
+Commentary: I will note that this question assumes people got it right originally.
+
+Null: Mu1 - Mu2 = 0 OR Mu1 = Mu2 (No difference between mature mothers on baby weight)
+
+Alternate: Mu1 - Mu2 ≠ 0 OR Mu1 ≠ Mu2 (low birth weight babies is higher for mature mothers)
+
+```{r test lowbirthweight}
+
+t_test_LBW <- ncbirths %>%
+  mutate(lowbirthweight_numeric = case_when(
+    lowbirthweight == "not low" ~ 0,
+    lowbirthweight == "low" ~ 1
+  ))
+
+t.test(lowbirthweight_numeric ~ mature, data = t_test_LBW)
+
+```
+Assuming I did this correctly, there is no difference between younger and mature mothers for babies with low birth weight (p = .37)
+
+```{r CI for low birth weight}
+
+t_test_LBW <- ncbirths %>%
+  mutate(lowbirthweight_numeric = case_when(
+    lowbirthweight == "not low" ~ 0,
+    lowbirthweight == "low" ~ 1
+  ))
+
+mature_low_weight <- t_test_LBW %>%
+  filter(mature == "mature mom")
+young_low_weight <- t_test_LBW %>%
+  filter(mature == "younger mom")
+
+
+mature_numb_low <- mean(mature_low_weight$lowbirthweight_numeric)
+young_numb_low <- mean(young_low_weight$lowbirthweight_numeric)
+
+
+diff_maturity_lowweight_mean <- prop_mature_low - prop_young_low
+
+diff_maturity_lowweight_sd <- sqrt((1-prop_mature_low)/nrow(mature_low_weight)) + ((1-prop_young_low)/nrow(young_low_weight))
+
+
+  
+ci_lowweight_dif <- data.frame(
+    mean_weight = diff_maturity_lowweight_mean,
+    se = diff_maturity_lowweight_sd,
+    lower = diff_maturity_lowweight_mean - 1.96 * diff_maturity_lowweight_sd,
+    upper = diff_maturity_lowweight_mean + 1.96 * diff_maturity_lowweight_sd
+  )
+
+ci_lowweight_dif
+
+```
+
+The CI is (-0.03360783, 0.08975165). Since the CI strattles zero, I know it's non-significant. If I had to guess what the CI represented, it would represent how large the difference is between the probability of a young mother giving birth to an underweight baby and an older mother giving birth to an underweight baby.
+
+Commentary: Learned SE when looking at proportions is (1-prop) for each group instead of of the sd.
