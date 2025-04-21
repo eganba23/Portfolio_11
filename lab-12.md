@@ -7,7 +7,7 @@ Benjamin Egan
 Link to the assignment page, at the time of creation:
 <https://web.archive.org/web/20250414135227/https://datascience4psych.github.io/DataScience4Psych/lab12.html>
 
-Link to assignment page as of April 15 2025:
+Link to assignment page as of April 21 2025:
 <https://datascience4psych.github.io/DataScience4Psych/lab12.html>
 
 ## Commentary on Lab 12
@@ -376,12 +376,10 @@ and non-smokers on baby weigh)
 Commentary: I TA for the 312 class and have hypothesis testing
 essentially tattooed on my frontal lobe.
 
-#### Construct a 95% confidence interval for the difference between the average weights of babies born to smoking and non-smoking mothers.
-
-\*I did them out of order, this is Q10
+#### Run the appropriate hypothesis test, calculate the p-value, and interpret the results in context of the data and the hypothesis test.
 
 ``` r
-view(ncbirths_clean)
+#view(ncbirths_clean)
 
 ci_vals <- ncbirths_clean %>%
   group_by(habit) %>%
@@ -454,8 +452,6 @@ annotate("text",
 Based on this graph, it looks like the two distributions heavily
 overlap, and there appears to be some basic overlap for the CIs.
 
-#### Run the appropriate hypothesis test, calculate the p-value, and interpret the results in context of the data and the hypothesis test.
-
 ##### Commentary
 
 I will admit that I was completely lost on how to get the p value. I
@@ -480,3 +476,334 @@ for a fact there isn’t based on the summary() look at the variables.
 
 I’m thinking that I’ll need to use idea one, since I’m not confident
 idea 2 would give me the best outcomes.
+
+``` r
+seed
+```
+
+    ## NULL
+
+``` r
+smoking_pvalue_test <- ncbirths_clean %>%
+  group_by(habit) %>%
+  specify(response = weight) %>% 
+  generate(reps = 15000, type = "bootstrap") %>% 
+  calculate(stat = "mean")
+
+head(smoking_pvalue_test)
+```
+
+    ## Response: weight (numeric)
+    ## # A tibble: 6 × 2
+    ##   replicate  stat
+    ##       <int> <dbl>
+    ## 1         1  7.14
+    ## 2         2  7.09
+    ## 3         3  7.13
+    ## 4         4  7.10
+    ## 5         5  7.09
+    ## 6         6  7.11
+
+Ok so I fought with chat heavily to figure out how to do it this way via
+idea 1, and I have zero clue why group_by isn’t doing it’s job. So now
+I’ll try idea two, but using chat’s help
+
+``` r
+# Load necessary libraries
+library(dplyr)
+library(infer)
+
+
+# Split the dataset by habit (smoker vs nonsmoker)
+smoker_data <- ncbirths_clean %>% filter(habit == "smoker")
+nonsmoker_data <- ncbirths_clean %>% filter(habit == "nonsmoker")
+
+# Perform bootstrap for smokers
+smoker_bootstrap <- specify(smoker_data, response = weight) %>%
+  generate(reps = 15000, type = "bootstrap") %>%
+  calculate(stat = "mean")
+
+# Perform bootstrap for non-smokers
+nonsmoker_bootstrap <- specify(nonsmoker_data, response = weight) %>%
+  generate(reps = 15000, type = "bootstrap") %>%
+  calculate(stat = "mean")
+
+# Combine both bootstrap results into one data frame
+white_weight_habit_bootstrap <- bind_rows(
+  smoker_bootstrap %>% mutate(habit = "smoker"),
+  nonsmoker_bootstrap %>% mutate(habit = "nonsmoker")
+)
+```
+
+I went back and asked it to do it only using the libraries required thus
+far.
+
+``` r
+# Split the dataset by 'habit' (smoker vs nonsmoker)
+smoker_data <- ncbirths_clean %>% filter(habit == "smoker")
+nonsmoker_data <- ncbirths_clean %>% filter(habit == "nonsmoker")
+
+# Define a function to perform bootstrapping
+bootstrap_mean <- function(data, reps = 15000) {
+  # Create bootstrap samples and calculate means
+  replicate(reps, {
+    sample_data <- sample(data$weight, replace = TRUE)
+    mean(sample_data)
+  })
+}
+
+# Perform bootstrap for smokers
+smoker_bootstrap_means <- bootstrap_mean(smoker_data, 15000)
+
+# Perform bootstrap for non-smokers
+nonsmoker_bootstrap_means <- bootstrap_mean(nonsmoker_data, 15000)
+
+# Combine both bootstrap results into one data frame
+white_weight_habit_bootstrap <- tibble(
+  habit = c(rep("smoker", 15000), rep("nonsmoker", 15000)),
+  bootstrap_mean = c(smoker_bootstrap_means, nonsmoker_bootstrap_means)
+)
+```
+
+Another attempt using ChatGPT. Here is what I plugged into chat
+
+What if i try creating a loop using for or if or while. The loop
+specifies that I filter for only smoker data, simulate 1500, and apply a
+categorical variable with the designation “smoker”. I then repeat the
+sequence, except I now filter for only nonsmoker data pply a categorical
+variable with the designation “nonsmoker”
+
+It gave me a response I didn’t like, and asked “Is it possible to
+restructure or recreate the code such that we won’t have to combine the
+boostraps and that it will do it all in one go?”
+
+``` r
+# Set habit groups and number of reps
+habits <- c("smoker", "nonsmoker")
+n_reps <- 15000
+
+# Initialize an empty tibble to collect all bootstrap results
+white_weight_habit_bootstrap <- tibble()
+
+# Loop through both habit groups and perform bootstrap
+for (h in habits) {
+  
+  # Filter the data for the current group
+  current_data <- ncbirths_clean %>% filter(habit == h)
+  
+  # Perform bootstrap in one go (faster than nested loop)
+  boot_means <- map_dbl(1:n_reps, ~ mean(sample(current_data$weight, replace = TRUE)))
+  
+  # Append results directly to the main tibble
+  white_weight_habit_bootstrap <- bind_rows(
+    white_weight_habit_bootstrap,
+    tibble(habit = h, bootstrap_mean = boot_means)
+  )
+}
+
+# View result ---- view(white_weight_habit_bootstrap)
+```
+
+Commentary: To figure out what is happening with group_by, I simulated
+data with extreme means.
+
+``` r
+seed
+```
+
+    ## NULL
+
+``` r
+small <- rnorm(100, mean = 10, sd = 5)
+
+dfsmall <- data.frame(
+    score = small,
+    group = 1
+  )
+
+large <- rnorm(100, mean = 1000, sd = 5)
+
+dflarge <- data.frame(
+    score = large,
+    group = 2
+  )
+
+simulation <- full_join(dfsmall,dflarge)
+```
+
+    ## Joining with `by = join_by(score, group)`
+
+``` r
+simluation_test1 <- simulation %>%
+  group_by(group) %>%
+  specify(response = score) %>% 
+  generate(reps = 15000, type = "bootstrap") %>%
+  calculate(stat = "mean") %>%
+  ungroup()
+```
+
+Commentary: turns out it just ignores the group_by, as the bootstrapping
+provides means that encompass the entire data.
+
+Ok after talking to 4/16 Mason, we figured out she intended for us to
+run a t-test.
+
+``` r
+t.test(weight ~ habit, data = ncbirths_clean)
+```
+
+    ## 
+    ##  Welch Two Sample t-test
+    ## 
+    ## data:  weight by habit
+    ## t = 2.359, df = 171.32, p-value = 0.01945
+    ## alternative hypothesis: true difference in means between group nonsmoker and group smoker is not equal to 0
+    ## 95 percent confidence interval:
+    ##  0.05151165 0.57957328
+    ## sample estimates:
+    ## mean in group nonsmoker    mean in group smoker 
+    ##                7.144273                6.828730
+
+Based on the T-test, we know that mothers who don’t smoke have babies
+with a higher weight (7.144) than mothers who smoke (6.829).
+
+#### Construct a 95% confidence interval for the difference between the average weights of babies born to smoking and non-smoking mothers.
+
+``` r
+mean_smoker_weight <- mean(smoker_data$weight)
+mean_nonsmoker_weight <- mean(nonsmoker_data$weight)
+sd_smoker_weight <- sd(smoker_data$weight)
+sd_nonsmoker_weight <- sd(nonsmoker_data$weight)
+
+mean_diff_smoker_weight <- mean_nonsmoker_weight - mean_smoker_weight
+
+se_smoker_weight <- sqrt(sd_smoker_weight/nrow(smoker_data))+(sd_nonsmoker_weight/nrow(nonsmoker_data))
+
+
+  
+ci_diff <- data.frame(
+    mean_weight = mean_diff_smoker_weight,
+    se = se_smoker_weight,
+    lower = mean_diff_smoker_weight - 1.96 * se_smoker_weight,
+    upper = mean_diff_smoker_weight + 1.96 * se_smoker_weight
+  )
+
+ci_diff
+```
+
+    ##   mean_weight        se    lower    upper
+    ## 1   0.3155425 0.1066273 0.106553 0.524532
+
+The 95% CI for the mean difference between average weights is (.11 \< x
+\> .52).
+
+Commentary: I know to use the SE, but I’m not sure if other people do.
+Might want to give them the equation as scaffolding?
+
+#### First, a non-inference task: Determine the age cutoff for younger and mature mothers. Use a method of your choice, and explain how your method works.
+
+``` r
+test_mature_upper_cutoff <- ncbirths_clean %>%
+  filter(mature == "mature mom")
+
+min(test_mature_upper_cutoff$mage)
+```
+
+    ## [1] 35
+
+``` r
+test_mature_lower_cutoff <- ncbirths_clean %>%
+  filter(mature == "younger mom")
+
+min(test_mature_lower_cutoff$mage)
+```
+
+    ## [1] 13
+
+I filtered based on mature mom’s and saw what the lowest age for mature
+moms was. I did the same for young moms and looked at the maximum age.
+Since they’re both 35, this will be the cutoff.
+
+#### Conduct a hypothesis test evaluating whether the proportion of low birth weight babies is higher for mature mothers. Use alpha of .05
+
+Commentary: I will note that this question assumes people got it right
+originally.
+
+Null: Mu1 - Mu2 = 0 OR Mu1 = Mu2 (No difference between mature mothers
+on baby weight)
+
+Alternate: Mu1 - Mu2 ≠ 0 OR Mu1 ≠ Mu2 (low birth weight babies is higher
+for mature mothers)
+
+``` r
+t_test_LBW <- ncbirths %>%
+  mutate(lowbirthweight_numeric = case_when(
+    lowbirthweight == "not low" ~ 0,
+    lowbirthweight == "low" ~ 1
+  ))
+
+t.test(lowbirthweight_numeric ~ mature, data = t_test_LBW)
+```
+
+    ## 
+    ##  Welch Two Sample t-test
+    ## 
+    ## data:  lowbirthweight_numeric by mature
+    ## t = 0.889, df = 166.59, p-value = 0.3753
+    ## alternative hypothesis: true difference in means between group mature mom and group younger mom is not equal to 0
+    ## 95 percent confidence interval:
+    ##  -0.03427078  0.09041460
+    ## sample estimates:
+    ##  mean in group mature mom mean in group younger mom 
+    ##                 0.1353383                 0.1072664
+
+Assuming I did this correctly, there is no difference between younger
+and mature mothers for babies with low birth weight (p = .37)
+
+#### Calculate a confidence interval for the difference between the proportions of low birth weight babies between mature and younger mothers. Interpret the interval in the context of the data and explain what it means.
+
+``` r
+t_test_LBW <- ncbirths %>%
+  mutate(lowbirthweight_numeric = case_when(
+    lowbirthweight == "not low" ~ 0,
+    lowbirthweight == "low" ~ 1
+  ))
+
+mature_low_weight <- t_test_LBW %>%
+  filter(mature == "mature mom")
+young_low_weight <- t_test_LBW %>%
+  filter(mature == "younger mom")
+
+
+prop_mature_low <- mean(mature_low_weight$lowbirthweight_numeric)
+prop_young_low <- mean(young_low_weight$lowbirthweight_numeric)
+
+
+diff_maturity_lowweight_mean <- prop_mature_low - prop_young_low
+
+diff_maturity_lowweight_sd <- sqrt((1-prop_mature_low)/nrow(mature_low_weight)) + ((1-prop_young_low)/nrow(young_low_weight))
+
+
+  
+ci_lowweight_dif <- data.frame(
+    mean_weight = diff_maturity_lowweight_mean,
+    se = diff_maturity_lowweight_sd,
+    lower = diff_maturity_lowweight_mean - 1.96 * diff_maturity_lowweight_sd,
+    upper = diff_maturity_lowweight_mean + 1.96 * diff_maturity_lowweight_sd
+  )
+
+ci_lowweight_dif
+```
+
+    ##   mean_weight        se      lower     upper
+    ## 1  0.02807191 0.0816598 -0.1319813 0.1881251
+
+The CI is (-0.1319813, 0.1881251). Since the CI strattles zero, I know
+it’s non-significant. If I had to guess what the CI represented, it
+would represent how large the difference is between the probability of a
+young mother giving birth to an underweight baby and an older mother
+giving birth to an underweight baby.
+
+Commentary: Learned SE when looking at proportions is (1-prop) for each
+group instead of of the sd. Might be helpful to rewrite SE for
+proportions or give students a hint to google it.

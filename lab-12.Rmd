@@ -537,12 +537,12 @@ Commentary: I know to use the SE, but I'm not sure if other people do. Might wan
 test_mature_upper_cutoff <- ncbirths_clean %>%
   filter(mature == "mature mom")
 
-min(filter_mature$mage)
+min(test_mature_upper_cutoff$mage)
 
 test_mature_lower_cutoff <- ncbirths_clean %>%
   filter(mature == "younger mom")
 
-min(filter_mature$mage)
+min(test_mature_lower_cutoff$mage)
 
 ```
 
@@ -569,6 +569,8 @@ t.test(lowbirthweight_numeric ~ mature, data = t_test_LBW)
 ```
 Assuming I did this correctly, there is no difference between younger and mature mothers for babies with low birth weight (p = .37)
 
+#### Calculate a confidence interval for the difference between the proportions of low birth weight babies between mature and younger mothers. Interpret the interval in the context of the data and explain what it means.
+
 ```{r CI for low birth weight}
 
 t_test_LBW <- ncbirths %>%
@@ -583,8 +585,8 @@ young_low_weight <- t_test_LBW %>%
   filter(mature == "younger mom")
 
 
-mature_numb_low <- mean(mature_low_weight$lowbirthweight_numeric)
-young_numb_low <- mean(young_low_weight$lowbirthweight_numeric)
+prop_mature_low <- mean(mature_low_weight$lowbirthweight_numeric)
+prop_young_low <- mean(young_low_weight$lowbirthweight_numeric)
 
 
 diff_maturity_lowweight_mean <- prop_mature_low - prop_young_low
@@ -604,6 +606,6 @@ ci_lowweight_dif
 
 ```
 
-The CI is (-0.03360783, 0.08975165). Since the CI strattles zero, I know it's non-significant. If I had to guess what the CI represented, it would represent how large the difference is between the probability of a young mother giving birth to an underweight baby and an older mother giving birth to an underweight baby.
+The CI is (-0.1319813, 0.1881251). Since the CI strattles zero, I know it's non-significant. If I had to guess what the CI represented, it would represent how large the difference is between the probability of a young mother giving birth to an underweight baby and an older mother giving birth to an underweight baby.
 
-Commentary: Learned SE when looking at proportions is (1-prop) for each group instead of of the sd.
+Commentary: Learned SE when looking at proportions is (1-prop) for each group instead of of the sd. Might be helpful to rewrite SE for proportions or give students a hint to google it.
